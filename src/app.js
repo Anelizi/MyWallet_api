@@ -1,10 +1,10 @@
 import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
-import express from "express";
+import express, { json } from "express";
 import Joi from "joi";
 import { MongoClient } from "mongodb";
-import { v4  as uuid } from "uuid";
+import { v4 as uuid } from "uuid";
 
 const app = express();
 
@@ -13,19 +13,44 @@ app.use(cors());
 
 dotenv.config();
 
-// const mongoClient = new MongoClient(process.env.);
+const mongoClient = new MongoClient(process.env.DATABASE_URL);
 
-// try {
-//     await mongoClient.connect();
-//     console.log("MongoDB conectado");
-// } catch (error) {
-//     console.log(err.message);
-// }
-// const db = mongoClient.db();
+try {
+  await mongoClient.connect();
+  console.log("MongoDB conectado");
+} catch (error) {
+  console.log(error.message);
+}
+const db = mongoClient.db();
 
-app.post("cadastro", async (req, res) =>{
-
+// Schemas
+const userSchemas = Joi.object({
+    name: Joi.string().required(), 
+    email: Joi.string().email().required(),
+    password: Joi.string().required.min(3),
 })
+
+app.post("/sign-up", async (req, res) => {
+  const { name, email, password } = req.body;
+
+  const validation = userSchemas.validate(res.body, {abortEarly: false})
+  if(validation.error){
+    const errors = validation.error.details.map((detail) => detail.message)
+    return res.status(422).send(errors)
+  }
+
+  try {
+    const user = await db.collection("users").findOne({email});
+    if (user) return res.status(409).send("E-mail já cadastrado.")
+
+    const hash = bcrypt.hashSync(password, 10)
+
+    await db.collection("users").insertOne({ name, email, password: hash });
+    res.sendStatus(201);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
