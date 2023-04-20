@@ -52,5 +52,24 @@ app.post("/sign-up", async (req, res) => {
   }
 });
 
+app.post("/sign-in", async (req, res) => {
+    const { email, password } = req.body
+
+    try {
+        const user = await db.collection("users").findOne({email})
+        if (!user) return res.status(422).send("E-mail não cadastrado.");
+
+        const passwordCorrect = bcrypt.compareSync(password, user.password)
+        if (!passwordCorrect) return res.status(422).send("Senha incorreta")
+
+        const token = uuid()
+        await db.collection("sessions").insertOne({token, idUser: user._id})
+
+        res.status(200).send(token)
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
