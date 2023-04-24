@@ -1,31 +1,12 @@
 import { db } from "../database/database.connection.js";
 import { ObjectId } from "mongodb";
 import dayjs from "dayjs";
-import { transactionsSchemas } from "../schemas/transactions.schema.js";
 
 export async function postTransactions(req, res) {
   const time = dayjs().format("DD/MM");
-  const { type, value, description, date } = req.body;
-  const { authorization } = req.headers;
-  const token = authorization?.replace("Bearer ", "");
-
-  if (!token) return res.sendStatus(401);
-
-  const validation = transactionsSchemas.validate(
-    { type, value, description, date },
-    {
-      abortEarly: false,
-    }
-  );
-
-  if (validation.error) {
-    const errors = validation.error.details.map((detail) => detail.message);
-    return res.status(422).send(errors);
-  }
-
+  const { type, value, description } = req.body;
   try {
-    const session = await db.collection("sessions").findOne({ token });
-    if (!session) return res.sendStatus(401);
+    const session = res.locals.session;
 
     const userId = session.id;
 
@@ -74,14 +55,8 @@ export async function postTransactions(req, res) {
 }
 
 export async function getTransactions(req, res) {
-  const { authorization } = req.headers;
-  const token = authorization?.replace("Bearer ", "");
-
-  if (!token) return res.sendStatus(401);
-
   try {
-    const session = await db.collection("sessions").findOne({ token });
-    if (!session) return res.sendStatus(401);
+    const session = res.locals.session;
 
     const userId = session.id;
 
@@ -90,7 +65,7 @@ export async function getTransactions(req, res) {
       .findOne({ _id: new ObjectId(userId) });
 
     const information = await db
-      .collection("informations")
+      .collection("information")
       .find({ userId })
       .toArray();
 
